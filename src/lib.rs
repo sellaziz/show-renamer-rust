@@ -296,7 +296,7 @@ pub fn clean_name(text: &String) -> String {
         r"[Ss]([0-9]+)[ ._-]*[Ee]([0-9]+)([^\\/]*)", // season_ep
         r"[Ss]eason\s*\d+",  // season_full
         r"\W\-?\s?\d{1,3}\W", // ep
-        r"\Wep\s*\d*",         // ep_short
+        r"\Wep?\s*\d*",         // ep_short
         r"episode[s]?(\W?\d{1,3}\W?)?", // episode
         r"\W\d+",            // nb alone
     ];
@@ -318,7 +318,7 @@ pub fn clean_name(text: &String) -> String {
         //         println!("capture : {}", &cap[0]);
         //     }
         // }
-        temp_txt = regex.replace(temp_txt.as_str(), "").to_owned().to_string();
+        temp_txt = regex.replace_all(temp_txt.as_str(), "").to_owned().to_string();
     }
     for to_rm in replace_set {
         temp_txt = temp_txt.replace(to_rm, "");
