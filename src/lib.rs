@@ -1,6 +1,9 @@
 //! This library allows to rename file names when specifying the folder 
 //! or the file path and matches the names with a TV show using TheMovieDB
 //! and suggest a new standard name
+mod file_search;
+mod query;
+
 use regex::Regex;
 use std::env;
 use std::error::Error;
@@ -14,13 +17,13 @@ use tmdb::themoviedb::*;
 use ::std::collections::HashMap;
 
 pub struct Config {
-    pub filenames: Vec<String>,
+    pub filenames: Vec<PathBuf>,
     pub api_key: String,
     pub lang: String,
 }
 
 impl Config {
-    pub fn new(filenames: Vec<String>, lang: String) -> Result<Config, &'static str> {
+    pub fn new(filenames: Vec<PathBuf>, lang: String) -> Result<Config, &'static str> {
         let filenames = filenames.clone();
         let lang = lang.clone();
 
@@ -39,24 +42,18 @@ impl Config {
 pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
     let file_set = args.filenames;
     let cp_file_set = file_set.clone();
-    let mut cleaned_set: Vec<String> = vec!["".to_string()];
-    let mut extension_set: Vec<String> = vec!["".to_string()];
-    let mut dir_set: Vec<String> = vec!["".to_string()];
-    let mut info_set: Vec<[u32; 2]> = vec![[0, 0]];
+    let mut cleaned_set: Vec<String> = vec![];
+    let mut extension_set: Vec<String> = vec![];
+    let mut dir_set: Vec<PathBuf> = vec![];
+    let mut info_set: Vec<[u32; 2]> = vec![];
     let mut unique_queries = HashMap::new();
     let mut counter: usize = 0;
 
     // Cluster cleaned name to minimize queries
     for file in file_set {
-        let file_path = PathBuf::from(&file);
-        let parent_dir = file_path
-            .parent()
-            .unwrap()
-            .as_os_str()
-            .to_os_string()
-            .into_string()
-            .unwrap();
-        dir_set.push(parent_dir.to_string());
+        let file_path = &file;
+        let parent_dir = file_path.parent().unwrap();
+        dir_set.push(PathBuf::from(parent_dir));
         let file_name = file_path
             .file_name()
             .unwrap()
@@ -85,10 +82,6 @@ pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
         );
         counter = counter + 1;
     }
-    dir_set.remove(0);
-    cleaned_set.remove(0);
-    info_set.remove(0);
-    extension_set.remove(0);
     // println!("{:?}", dir_set);
     // println!("{:?}", cleaned_set);
     // println!("{:?}", unique_queries);
@@ -108,8 +101,8 @@ pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
         language: "fr",
     };
 
-    let mut new_name: Vec<String> = vec!["".to_string()];
-    let mut clean_show_name: Vec<String> = vec!["".to_string()];
+    let mut new_name: Vec<String> = vec![];
+    let mut clean_show_name: Vec<String> = vec![];
     // Implementation to minimize queries, but mess up the order
     // and it doesn't allow to figure out which new name correspond to the old one
     /* for (show, s_e_query) in &unique_queries {
@@ -136,11 +129,11 @@ pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
     for i in 0..counter {
         let show = &cleaned_set[i];
         let s_e = info_set[i];
-        // println!("{} ", show);
+        println!("{} ", show);
         let page = tmdb.search().title(&show).execute_tv().unwrap();
         let season = s_e[0] as u16;
         let episode = s_e[1] as usize;
-        // println!("{} : {:#?}", season, episode);
+        println!("{} : {:#?}", season, episode);
 
         let shows = page.results;
         let show = shows[0].fetch(&tmdb).unwrap();
@@ -151,8 +144,6 @@ pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
         new_name.push(episode.name.to_string());
         clean_show_name.push(show.name.to_string());
     }
-    new_name.remove(0);
-    clean_show_name.remove(0);
     // println!("{:?}", new_name);
     // println!("{:?}", clean_show_name);
 
@@ -176,7 +167,7 @@ pub fn run(args: Config) -> Result<(), Box<dyn Error>> {
         }
         // println!("{}", full_name);
         full_name = format!(
-            "{}/{}",
+            "{:?}/{:?}",
             dir_set[i],
             full_name
         );

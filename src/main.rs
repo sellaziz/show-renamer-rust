@@ -4,6 +4,7 @@ use std::path::PathBuf;
 use std::process;
 use std::{env, fs};
 
+mod file_search;
 #[derive(Parser)]
 // #[clap(author = None)]
 #[clap(version = "0.1")]
@@ -33,64 +34,20 @@ enum Lang {
 }
 fn main() {
     let cli = Cli::parse();
-    let mut filenames: Vec<String> = vec![String::from("init")];
+    let mut filenames: Vec<PathBuf> = vec![];
     let mut lang: String = String::from("fr");
+
     if cli.file == None && cli.directory == None {
         eprintln!("Missing argument <FILE> or <FOLDER>");
         process::exit(1);
     } else if cli.file != None {
-        let file = cli.file.unwrap();
-        if file.exists() {
-            println!("Renaming : {:#?}", file);
-            filenames.push(
-                fs::canonicalize(&file)
-                    .unwrap()
-                    .into_os_string()
-                    .into_string()
-                    .unwrap(),
-            );
-        } else {
-            eprintln!("Error : {:#?} does not exist", file);
-            process::exit(1);
-        }
+        filenames = file_search::SrrFileSet::from_filepath(cli.file.unwrap())
+            .unwrap()
+            .file_set;
     } else {
-        let directory = cli.directory.unwrap();
-        if directory.exists() {
-            let current_dir = directory.into_os_string().into_string().unwrap();
-            // println!("Entering folder : {:#?}", &current_dir);
-            // println!(
-            //     "Entries modified in the last 24 hours in {:?}:",
-            //     &current_dir
-            // );
-
-            for entry in fs::read_dir(&current_dir).unwrap() {
-                let entry = entry.unwrap();
-                let path = entry.path();
-
-                let metadata = fs::metadata(&path).unwrap();
-                if metadata.is_file() {
-                    let subfile = path.clone();
-                    // println!(
-                    //     "Last modified: {:?} seconds, is read only: {:?}, size: {:?} bytes, filename: {:?}",
-                    //     last_modified,
-                    //     metadata.permissions().readonly(),
-                    //     metadata.len(),
-                    //     path.file_name().ok_or("No filename").unwrap()
-                    // );
-                    // println!("{:#?}", subfile);
-                    filenames.push(
-                        fs::canonicalize(&PathBuf::from(subfile))
-                            .unwrap()
-                            .into_os_string()
-                            .into_string()
-                            .unwrap(),
-                    );
-                }
-            }
-        } else {
-            eprintln!("Error : {:#?} does not exist", directory);
-            process::exit(1);
-        }
+        filenames = file_search::SrrFileSet::from_directory(cli.directory.unwrap())
+            .unwrap()
+            .file_set;
     }
     match cli.lang {
         Some(Lang::Eng) => {
@@ -100,8 +57,7 @@ fn main() {
             lang = String::from("fr");
         }
     }
-    filenames.remove(0);
-    // println!("{:#?}", filenames);
+    // println!("file_set : {:#?}", filenames);
     // println!("{:#?}", lang);
     let config = Config::new(filenames, lang).unwrap();
     run(config);
